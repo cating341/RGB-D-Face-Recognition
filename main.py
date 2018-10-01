@@ -23,29 +23,52 @@ from data_loader_4 import CreateDataloader
 from data_loader_3 import CreateDataloader_3
 
 ### Parameters ###
-split_ratio = 0.1
-epochs = 200
+split_ratio = 0
+epochs = 500
 batch_size = 1
 lr = 0.01
 momentum = 0.5
 
 cuda = True
 log_step_percentage = 10
+checkpoint_path = './checkpoints'
 
 #data_path = 'D:/Datasets/BU_small/RGB'
 #data_path_d = 'D:/Datasets/BU_small/D'
 
 def main(args):
-    train_loader_ = None
-    valid_loader_ = None 
+
+    train_loader = None
+    valid_loader = None 
     class_num = 0
 
     if args.channel == 4:
-        class_num, train_loader_, valid_loader_ = CreateDataloader(args.rgb_dir, args.d_dir, batch_size, split_ratio)
+        class_num, train_loader, valid_loader = CreateDataloader(args.rgb_dir, args.d_dir, batch_size, split_ratio)
+        if split_ratio == 0:
+            _, valid_loader, _ = CreateDataloader(args.rgb_dir_test, args.d_dir_test, batch_size, split_ratio)
         Net = ResNet18_(4, class_num)
+        print('------------------------------------')
+        print('Input Channel Size: ', args.channel)
+        print('RGB Data Directory: ', args.rgb_dir)
+        print('D Data Directory: ', args.d_dir)
     else:
-        class_num, train_loader_, valid_loader_ = CreateDataloader_3(args.d_dir, batch_size, split_ratio)
+        class_num, train_loader, valid_loader = CreateDataloader_3(args.d_dir, batch_size, split_ratio)
+        if split_ratio == 0:
+            _, valid_loader, _ = CreateDataloader_3(args.d_dir_test, batch_size, split_ratio)
         Net = ResNet18_(3, class_num)
+        print('------------------------------------')
+        print('Input Channel Size: ', args.channel)
+        print('Data Directory: ', args.d_dir)
+        print('RGB Data Directory: ', args.rgb_dir)
+        print('D Data Directory: ', args.d_dir)
+
+    # checkpints path
+    #if not os.path.exists(f'{checkpoint_path}/{args.checkpoint_name}'):
+    #os.makedirs(f'{checkpoint_path}/{args.checkpoint_name}')
+    try:
+        os.stat('%s/%s' % (checkpoint_path, args.checkpoint_name))
+    except:
+        os.mkdir('%s/%s' % (checkpoint_path, args.checkpoint_name))
 
     if cuda:
         Net.cuda()
@@ -55,7 +78,7 @@ def main(args):
     loss_function = nn.CrossEntropyLoss()
     #loss_function = nn.LogSoftmax()
     optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=1e-5)
-    log_interval = len(train_loader_) / log_step_percentage
+    log_interval = len(train_loader) / log_step_percentage
 
 
     # Add tensorboard writer
@@ -69,7 +92,7 @@ def main(args):
         correct = 0
         total = 0
         loss = 0
-        for batch_idx, (inputs, labels) in enumerate(train_loader_, 0):
+        for batch_idx, (inputs, labels) in enumerate(train_loader, 0):
             # get the inputs
             if cuda:
                 inputs, labels = inputs.cuda(), labels.cuda()
@@ -93,19 +116,19 @@ def main(args):
             
             
             # print statistics
-            if batch_idx % 500 == 0:
-                n_iter = epoch*len(train_loader_) + batch_idx
+            if batch_idx % 10000 == 0:
+                n_iter = epoch*len(train_loader) + batch_idx
 
-                accu = 100 * correct / total
+                accu = 100 * float(correct) / float(total)
                 writer.add_scalar('data/training_accuracy', accu, n_iter)
-                writer.add_scalar('data/loss', loss, n_iter)
-                print(f'Train Epoch: {epoch} [{batch_idx*len(inputs)}/{len(train_loader_.dataset)}] \t Loss: {loss.item():.5f} \t Accuracy: {accu}%')
+                writer.add_scalar('data/loss', loss.item(), n_iter)
+                print(f'Train Epoch: {epoch} [{batch_idx*len(inputs)}/{len(train_loader.dataset)}] \t Loss: {loss.item()} \t Accuracy: {accu:.2f}%')
 
         if epoch % 1 == 0:
             correct = 0
             total = 0
             #for data in val_loader:
-            for (images, labels) in valid_loader_:
+            for (images, labels) in valid_loader:
                 #images, labels = data
                 #labels = labels.type(torch.LongTensor)
                 if cuda:
@@ -118,14 +141,16 @@ def main(args):
 
                 loss = loss_function(outputs, labels)
             
-            val_accu = 100 * correct / total
-            print('Accuracy: %d %%' % (val_accu))
+            val_accu = 100 * float(correct) / float(total)
+            print('Validation Accuracy: %d %%' % (val_accu))
             writer.add_scalar('data/val_accuracy', val_accu, epoch)
             writer.add_scalar('data/loss', loss, epoch)
         
-        if epoch % 50 == 0:
-            torch.save(Net, f'Net_{epoch}.pkl')
-            print(f'Save network with epoch {epoch}')
+        if epoch == 50:
+            lr = lr/2
+        if epoch %  1 == 0:
+            torch.save(Net, f'{checkpoint_path}/{args.checkpoint_name}/Net_{epoch}.pkl')
+            print(f'Save network: {checkpoint_path}/{args.checkpoint_name}/Net_{epoch}.pkl')
 
     print('Finished Training')
 
@@ -134,13 +159,19 @@ def main(args):
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument('--rgb_dir', type=str, 
-        help='RGB dataset.', default='D:/Datasets/BU_small/RGB')
+        help='RGB dataset.', default='D:/Datasets/BU_1225/dataset/train/RGB')
     parser.add_argument('--d_dir', type=str, 
-        help='RGB dataset.', default='D:/Datasets/BU_small/D')
+        help='RGB dataset.', default='D:/Datasets/BU_1225/dataset/train/D')
+    parser.add_argument('--rgb_dir_test', type=str, 
+        help='RGB dataset.', default='D:/Datasets/BU_1225/dataset/test/RGB')
+    parser.add_argument('--d_dir_test', type=str, 
+        help='RGB dataset.', default='D:/Datasets/BU_1225/dataset/test/D')
     parser.add_argument('--channel', type=int,
         help='Input layer channel size', default=4)
+    parser.add_argument('--checkpoint_name', type=str,
+        help='Folder to save checkpoints.')
     #parser.add_argument('--class_num', type=int,
     #    help='Input layer channel size', default=100)
 

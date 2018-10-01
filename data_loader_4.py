@@ -140,8 +140,9 @@ def CreateDataloader(data_path, data_path_d, batch, split_ratio):
     train_loader, valid_loader = split_dataset(dataset, batch, split_ratio)
 
     print('Number of classes: %d' % classes_n)
-    print('Total images: %d (split ratio: %.1f)' % (len(train_x), split_ratio) )
-    print('Training images:', len(train_loader))
-    print('Validation images: ', len(valid_loader))
+    print('Total images: %d' % len(train_x))
+    #print('Total images: %d (split ratio: %.1f)' % (len(train_x), split_ratio) )
+    #print('Training images:', len(train_loader))
+    #print('Validation images: ', len(valid_loader))
 
     return classes_n, train_loader, valid_loader
