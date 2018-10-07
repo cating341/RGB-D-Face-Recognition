@@ -1,12 +1,8 @@
 import torch
 import torchvision
-import torch.utils.data as Data
-import torchvision.transforms as Transforms
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
-
 
 import os
 import sys
@@ -18,25 +14,24 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 from tensorboardX import SummaryWriter
-from networks import *
+import networks
 from data_loader_4 import CreateDataloader
 from data_loader_3 import CreateDataloader_3
 
-### Parameters ###
-split_ratio = 0
-epochs = 500
-batch_size = 1
-lr = 0.01
-momentum = 0.5
 
-cuda = True
-log_step_percentage = 10
-checkpoint_path = './checkpoints'
 
-#data_path = 'D:/Datasets/BU_small/RGB'
-#data_path_d = 'D:/Datasets/BU_small/D'
 
 def main(args):
+    ### Parameters ###
+    split_ratio = args.split
+    epochs = 500
+    batch_size = 1
+    lr = 0.01
+    momentum = 0.5
+
+    cuda = True
+    log_step_percentage = 10
+    checkpoint_path = './checkpoints'
 
     train_loader = None
     valid_loader = None 
@@ -46,7 +41,7 @@ def main(args):
         class_num, train_loader, valid_loader = CreateDataloader(args.rgb_dir, args.d_dir, batch_size, split_ratio)
         if split_ratio == 0:
             _, valid_loader, _ = CreateDataloader(args.rgb_dir_test, args.d_dir_test, batch_size, split_ratio)
-        Net = ResNet18_(4, class_num)
+        Net = networks.ResNet18(4, class_num)
         print('------------------------------------')
         print('Input Channel Size: ', args.channel)
         print('RGB Data Directory: ', args.rgb_dir)
@@ -55,7 +50,7 @@ def main(args):
         class_num, train_loader, valid_loader = CreateDataloader_3(args.d_dir, batch_size, split_ratio)
         if split_ratio == 0:
             _, valid_loader, _ = CreateDataloader_3(args.d_dir_test, batch_size, split_ratio)
-        Net = ResNet18_(3, class_num)
+        Net = nwtworks.ResNet18(3, class_num)
         print('------------------------------------')
         print('Input Channel Size: ', args.channel)
         print('Data Directory: ', args.d_dir)
@@ -102,7 +97,9 @@ def main(args):
 
             # forward + backward + optimize
             outputs = Net(inputs)
-            
+            #print(outputs)
+            #import pdb
+            #pdb.set_trace()
             _, predicted = torch.max(outputs, 1)
             
             #print(outputs.size(), predicted.size())
@@ -116,7 +113,7 @@ def main(args):
             
             
             # print statistics
-            if batch_idx % 10000 == 0:
+            if batch_idx % 10000 == 0 and batch_idx != 0:
                 n_iter = epoch*len(train_loader) + batch_idx
 
                 accu = 100 * float(correct) / float(total)
@@ -171,9 +168,9 @@ def parse_arguments(argv):
     parser.add_argument('--channel', type=int,
         help='Input layer channel size', default=4)
     parser.add_argument('--checkpoint_name', type=str,
-        help='Folder to save checkpoints.')
-    #parser.add_argument('--class_num', type=int,
-    #    help='Input layer channel size', default=100)
+        help='Folder to save checkpoints.', default='tmp')
+    parser.add_argument('--split', type=float,
+        help='Split ratio', default=0)
 
     return parser.parse_args(argv)
 
